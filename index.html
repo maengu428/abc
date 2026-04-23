@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고양장항초 인권 지도 제작소</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root { --primary: #4a90e2; --bg: #f8f9fa; }
+        body { font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: var(--bg); }
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; }
+        
+        #main { display: flex; flex: 1; overflow: hidden; }
+        #map { flex: 2; height: 100%; border-right: 2px solid #ddd; }
+        
+        #sidebar { flex: 1; padding: 20px; overflow-y: auto; background: white; }
+        .input-box { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        textarea { height: 100px; }
+        
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #357abd; }
+
+        .list-item { background: #fffde7; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 5px solid #fbc02d; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .list-item h4 { margin: 0 0 5px 0; color: #d32f2f; }
+        .list-item p { margin: 5px 0; font-size: 0.9rem; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🗺️ 고양장항초 주변 인권 지도</h1>
+    <p>지도를 클릭해 인권 침해 사례와 개선 방안을 기록해 봅시다!</p>
+</header>
+
+<div id="main">
+    <div id="map"></div> <div id="sidebar">
+        <h3>📝 인권 보고서 작성</h3>
+        <p style="font-size: 0.85rem; color: #666;">1. 지도의 장소를 클릭하세요.<br>2. 아래 내용을 채우고 저장하세요.</p>
+        
+        <div class="input-box">
+            <label>📍 선택한 장소명</label>
+            <input type="text" id="placeName" placeholder="예: 정문 앞 보도블록">
+        </div>
+
+        <div class="input-box">
+            <label>⚠️ 어떤 인권 문제가 있나요?</label>
+            <textarea id="issue" placeholder="예: 휠체어가 가기엔 턱이 너무 높아요."></textarea>
+        </div>
+
+        <div class="input-box">
+            <label>💡 어떻게 개선하면 좋을까요?</label>
+            <textarea id="solution" placeholder="예: 경사로를 설치해 주세요."></textarea>
+        </div>
+
+        <button onclick="addRecord()">기록 저장하기</button>
+
+        <hr style="margin: 25px 0;">
+        <div id="recordList">
+            <h3>📋 우리들의 기록 목록</h3>
+            </div>
+    </div>
+</div>
+
+<script>
+    // 1. 지도 설정 (고양장항초등학교 좌표)
+    const lat = 37.6496;
+    const lng = 126.7645;
+    const map = L.map('map').setView([lat, lng], 17);
+
+    // 2. 실제 지도 타일 이미지 불러오기 (OpenStreetMap 사용 - 키 필요 없음)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // 학교 위치에 기본 마커 찍기
+    L.marker([lat, lng]).addTo(map).bindPopup("<b>고양장항초등학교</b>").openPopup();
+
+    let tempMarker = null;
+    let selectedCoords = null;
+
+    // 3. 지도 클릭 이벤트
+    map.on('click', function(e) {
+        if (tempMarker) map.removeLayer(tempMarker); // 이전 마커 제거
+        
+        selectedCoords = e.latlng;
+        tempMarker = L.marker(selectedCoords).addTo(map);
+        alert("장소가 선택되었습니다. 사이드바에 내용을 입력해주세요!");
+    });
+
+    // 4. 데이터 저장 함수
+    function addRecord() {
+        const name = document.getElementById('placeName').value;
+        const issue = document.getElementById('issue').value;
+        const solution = document.getElementById('solution').value;
+
+        if (!selectedCoords) {
+            alert("지도에서 먼저 장소를 클릭해 주세요!");
+            return;
+        }
+        if (!name || !issue || !solution) {
+            alert("모든 빈칸을 채워주세요!");
+            return;
+        }
+
+        // 왼쪽 목록에 추가
+        const list = document.getElementById('recordList');
+        const item = document.createElement('div');
+        item.className = 'list-item';
+        item.innerHTML = `
+            <h4>📍 ${name}</h4>
+            <p><strong>문제:</strong> ${issue}</p>
+            <p><strong>개선방안:</strong> ${solution}</p>
+        `;
+        list.prepend(item);
+
+        // 마커 고정시키기
+        L.marker(selectedCoords).addTo(map)
+            .bindPopup(`<b>${name}</b><br>${issue}`)
+            .openPopup();
+
+        // 입력창 초기화
+        document.getElementById('placeName').value = "";
+        document.getElementById('issue').value = "";
+        document.getElementById('solution').value = "";
+        tempMarker = null;
+        selectedCoords = null;
+    }
+</script>
+
+</body>
+</html>
