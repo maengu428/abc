@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고양장항초 인권 지도 제작소</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --primary: #2e7d32; /* 사회 수업 느낌의 초록색 */
+            --accent: #f57c00;
+            --bg: #f4f4f9;
+        }
+
+        body { font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: var(--bg); }
+        
+        header { 
+            background: var(--primary); color: white; padding: 15px 20px; 
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header p { margin: 0; font-size: 0.9rem; opacity: 0.9; }
+
+        #main { display: flex; flex: 1; overflow: hidden; }
+
+        /* 지도 영역 - 횡단보도가 잘 보이도록 크게 배치 */
+        #map { flex: 2.5; height: 100%; z-index: 1; }
+
+        /* 사이드바 영역 */
+        #sidebar { 
+            flex: 1; min-width: 350px; background: white; padding: 25px; 
+            overflow-y: auto; box-shadow: -3px 0 10px rgba(0,0,0,0.1); 
+            display: flex; flex-direction: column; z-index: 2;
+        }
+
+        .input-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #333; border-left: 4px solid var(--primary); padding-left: 8px; }
+        
+        input, textarea { 
+            width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; 
+            box-sizing: border-box; font-size: 1rem; transition: border 0.3s;
+        }
+        input:focus, textarea:focus { border-color: var(--primary); outline: none; }
+        textarea { height: 100px; resize: none; }
+
+        button { 
+            width: 100%; padding: 15px; background: var(--primary); color: white; 
+            border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; 
+            cursor: pointer; transition: background 0.3s;
+        }
+        button:hover { background: #1b5e20; }
+
+        #record-list { margin-top: 30px; }
+        .record-card { 
+            background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 8px; 
+            margin-bottom: 15px; border-top: 4px solid var(--accent);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .record-card h4 { margin: 0 0 10px 0; color: #333; display: flex; align-items: center; }
+        .record-card p { margin: 5px 0; font-size: 0.9rem; color: #555; line-height: 1.5; }
+        .tag { font-size: 0.7rem; background: #eee; padding: 2px 6px; border-radius: 4px; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>📍 고양장항초 인권 지도</h1>
+        <p>우리 학교 주변의 인권 존중과 개선 사례를 찾아 기록해요</p>
+    </div>
+</header>
+
+<div id="main">
+    <div id="map"></div>
+
+    <div id="sidebar">
+        <div id="input-section">
+            <h2 style="margin-top: 0; color: var(--primary);">✏️ 인권 탐사 기록</h2>
+            <p style="color: #666; font-size: 0.85rem; margin-bottom: 20px;">
+                지도에서 횡단보도나 보도를 클릭한 뒤 내용을 입력하세요.
+            </p>
+
+            <div class="input-group">
+                <label>장소 이름</label>
+                <input type="text" id="placeName" placeholder="예: 학교 정문 횡단보도">
+            </div>
+
+            <div class="input-group">
+                <label>발견한 인권 상황</label>
+                <textarea id="issue" placeholder="어떤 점이 인권 침해인가요? 또는 어떤 점이 잘 되어 있나요?"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>우리의 제안(개선 방안)</label>
+                <textarea id="solution" placeholder="모두를 위해 어떻게 바뀌면 좋을까요?"></textarea>
+            </div>
+
+            <button onclick="saveRecord()">기록 저장하기</button>
+        </div>
+
+        <div id="record-list">
+            <h3 style="border-bottom: 2px solid #eee; padding-bottom: 10px;">📋 우리가 완성한 리스트</h3>
+            <div id="items"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. 지도 초기 설정 (고양장항초등학교 좌표)
+    const centerPos = [37.6496, 126.7645];
+    const map = L.map('map').setView(centerPos, 18); // 기본 확대 레벨을 18로 설정 (횡단보도 잘 보임)
+
+    // 2. 브이월드(Vworld) 고해상도 지도 레이어 추가
+    // 횡단보도와 건물이 가장 선명하게 보이는 한국 표준 지도입니다.
+    L.tileLayer('https://xdworld.vworld.kr/2d/Base/service/{z}/{x}/{y}.png', {
+        minZoom: 6,
+        maxZoom: 19,
+        attribution: '&copy; Vworld Maps (국토교통부)'
+    }).addTo(map);
+
+    // 학교 마커 표시
+    L.marker(centerPos).addTo(map).bindPopup("<b>🏫 고양장항초등학교</b>").openPopup();
+
+    let tempMarker = null;
+    let selectedCoords = null;
+
+    // 3. 지도 클릭 시 마커 표시
+    map.on('click', function(e) {
+        if (tempMarker) map.removeLayer(tempMarker);
+        
+        selectedCoords = e.latlng;
+        tempMarker = L.marker(selectedCoords).addTo(map);
+        
+        // 클릭 시 장소명 입력창으로 자동 포커스 (편의 기능)
+        document.getElementById('placeName').focus();
+    });
+
+    // 4. 데이터 저장 함수
+    function saveRecord() {
+        const name = document.getElementById('placeName').value;
+        const issue = document.getElementById('issue').value;
+        const solution = document.getElementById('solution').value;
+
+        if (!selectedCoords) {
+            alert("먼저 지도에서 위치를 클릭해 주세요!");
+            return;
+        }
+        if (!name || !issue || !solution) {
+            alert("빈칸을 모두 채워주세요!");
+            return;
+        }
+
+        // 사이드바 목록에 추가
+        const itemsDiv = document.getElementById('items');
+        const card = document.createElement('div');
+        card.className = 'record-card';
+        card.innerHTML = `
+            <h4>📍 ${name}</h4>
+            <p><strong>상황:</strong> ${issue}</p>
+            <p><strong>제안:</strong> ${solution}</p>
+        `;
+        itemsDiv.prepend(card);
+
+        // 지도에 마커 고정 및 정보창 달기
+        const permanentMarker = L.marker(selectedCoords).addTo(map);
+        permanentMarker.bindPopup(`<b>${name}</b><br>${issue}`).openPopup();
+
+        // 입력창 초기화
+        document.getElementById('placeName').value = "";
+        document.getElementById('issue').value = "";
+        document.getElementById('solution').value = "";
+        tempMarker = null;
+        selectedCoords = null;
+
+        alert("성공적으로 기록되었습니다!");
+    }
+</script>
+
+</body>
+</html>
